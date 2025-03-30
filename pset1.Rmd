@@ -44,7 +44,7 @@ table 1_U.xls.” Restrict attention to the following subset of variables:
 ```{r control qemp mean}
 # create vector of employment quarter columns 1-19
 # for quarter of RA to quarter 18, this will be quarter 1 to 19 -- see data documentation pg. 19
-empqcols <- c("empq1", "empq2", "empq3", "empq4", "empq5", "empq6", "empq7", "empq8", "empq9", "empq10", "empq11", "empq12", "empq13", "empq14", "empq15", "empq16", "empq17", "empq18", "empq19")
+empq_cols <- c("empq1", "empq2", "empq3", "empq4", "empq5", "empq6", "empq7", "empq8", "empq9", "empq10", "empq11", "empq12", "empq13", "empq14", "empq15", "empq16", "empq17", "empq18", "empq19")
 
 c_empq_means_table <- 
   # use admin data set
@@ -52,7 +52,7 @@ c_empq_means_table <-
   # filter for control group
   filter(e == 0) %>% 
   # isolate employment quarter columns
-  select (all_of(empqcols)) %>% 
+  select (all_of(empq_cols)) %>% 
   # calculate the mean of each column
   summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
   # convert means to percentages (multiply by 100)
@@ -62,20 +62,49 @@ c_empq_means_table <-
 ```
 
 (b) any AFDC/TANF payments, quarter of RA to quarter 18;
-```{r}
+```{r control any afdc mean}
 any_afdc_cols <- c("recc1", "recc2", "recc3", "recc4", "recc5", "recc6", "recc7", "recc8", "recc9", "recc10", "recc11", "recc12", "recc13", "recc14", "recc15", "recc16", "recc17", "recc18", "recc19")
+
+c_afdc_means_table <-
+  # use admin data set
+  ftp_ar %>% 
+  # filter for control group
+  filter(e == 0) %>% 
+  # isolate afdc/tanf payment columns
+  select (all_of(any_afdc_cols)) %>% 
+  # calculate the mean of each column
+  summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
+  # convert means to percentages (multiply by 100)
+  mutate(across(everything(), ~ . * 100))
 ```
 
-
 (b) any Food Stamp payments, quarter of RA to quarter 18;
-Are there any discrepancies? While you are at it, comment on the levels of
-employment among the people in the study population.
+```{r control any food stamp mean}
+rfsc_cols <- c("rfsc1", "rfsc2", "rfsc3", "rfsc4", "rfsc5", "rfsc6", "rfsc7", "rfsc8", "rfsc9", "rfsc10", "rfsc11", "rfsc12", "rfsc13", "rfsc14", "rfsc15", "rfsc16", "rfsc17", "rfsc18", "rfsc19")
 
+c_rfsc_means_table <-
+   # use admin data set
+  ftp_ar %>% 
+  # filter for control group
+  filter(e == 0) %>% 
+  # isolate afdc/tanf payment columns
+  select (all_of(rfsc_cols)) %>% 
+  # calculate the mean of each column
+  summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
+  # convert means to percentages (multiply by 100)
+  mutate(across(everything(), ~ . * 100))
+```
+
+Are there any discrepancies? 
+TK RFSC Quarter 17
+While you are at it, comment on the levels of
+employment among the people in the study population.
+TK Slow increase over time
 
 (4) Compare your results to those in Table B.1 of Bloom et al (2000). Why are they
 different? How do you expect these differences to affect your results?
 - Different because data is different (page 3)
-
+TK
 
 (5) Test for balance. To do so, use all variables whose labels contain the string
 “cova:”. These are pre-RA variables that MDRC sometimes used as controls.
