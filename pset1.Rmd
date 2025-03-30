@@ -1,0 +1,96 @@
+---
+title: "pp346_ps1_steiner"
+author: "erika steiner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overarching Questions
+(A) How did FTP change the behavior of welfare recipients?
+
+(B) What can we say about the effects of the time limit as opposed to other
+components of the program?
+
+## Analysis Questions
+
+(2) Open the file ftp_ar.dta. What is the number of observations? Of observations in the treatment and control groups? Do your numbers match those from the documentation?
+
+```{r import ar}
+ beep boop
+```
+
+
+
+
+(3) Verify the data by replicating the control-group means in the file “Annotated AR
+table 1_U.xls.” Restrict attention to the following subset of variables:
+(a) quarterly employment, quarter of RA to quarter 18;
+(b) any AFDC/TANF payments, quarter of RA to quarter 18;
+(b) any Food Stamp payments, quarter of RA to quarter 18;
+Are there any discrepancies? While you are at it, comment on the levels of
+employment among the people in the study population.
+
+
+(4) Compare your results to those in Table B.1 of Bloom et al (2000). Why are they
+different? How do you expect these differences to affect your results?
+- Different because data is different (page 3)
+
+
+(5) Test for balance. To do so, use all variables whose labels contain the string
+“cova:”. These are pre-RA variables that MDRC sometimes used as controls.
+Conduct two simple tests. First, regress each variable on the treatment dummy.
+Comment on your choice of which standard errors to compute. How many times do
+you reject the null at the 5% level? Roughly how many rejections would you expect
+under the null of random assignment? Second, regress the treatment dummy on all
+the variables together and conduct a joint test for balance. Explain your choice of
+degrees of freedom in computing this test. Do the two tests yield the same
+conclusion? What do you conclude about the overall balance of the sample?
+
+
+(6) Returning to the post-RA data, estimate simple treatment effects such as those
+shown in “Annotated AR table 1_U.xls.” Can you replicate those results? Restrict
+attention again to the variables from question (3).
+
+
+(7) What type of treatment effects do your estimates identify? How do you interpret
+them?
+
+
+(8) To distinguish the effects of the time limits from the other components of the
+reform program, Grogger and Michalopoulos proposed to estimate the effects of FTP
+by the age of the youngest child in the family. You’ll do the same. This will require
+knowing who was assigned to a 24-month time limit, and who was assigned a 36-
+month time limit. Use the actual time limit for the treatment group and the imputed
+time limit for the control group. Find and tabulate the relevant variables. How many
+observations are in each group?
+
+
+(9) Define four age groups as a function of the age of the youngest child in the family
+during the quarter of random assignment: (0) less than 3 years; (i) 3-8 years; (ii) 9-
+14 years (for families with a 36-month time limit) or 9-15 years (for families with a
+24-month time limit); (iv) 15-19 (for families with a 36-month time limit) or 16-19
+years (for families with a 24-month time limit). By treatment status, how many
+families are in each age group?
+
+
+(10) Estimate age-group-specific treatment effects of FTP on number of months of
+AFDC receipt and Food Stamp receipt, and number of quarters of employment ,
+during the first 24 months after random assignment. Are the estimates of the effects
+on AFDC receipt consistent with the hypothesis that time limits should have
+stronger effects, the younger the youngest child in the family? Note that families in
+age group (iv) (from Question 9) shouldn’t be affected by time limits at all. They are
+only affected by the other components of the program, so they provide an estimate
+of the collective effect of those components. Under some assumptions, you can
+estimate the effects of the time limit on the younger age groups as the difference
+between the age-group specific effects of the reform and the effect of the reform on
+the oldest age group.
+
+
+(11) To your regression from (10) add a dummy that equals one if the family has a
+36-month time limit. Reassess the evidence for whether time limits have stronger
+effects, the younger the youngest child in the family. Explain the difference between
+these estimates and those that do not control for the length of the time limit.
