@@ -5,12 +5,15 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, results = 'hide'}
 knitr::opts_chunk$set(echo = TRUE)
 library("haven")
 # https://martinctc.github.io/blog/working-with-spss-labels-in-r/
 library("tidyverse")
+library("broom")
 library("stringr")
+library("sandwich")
+library("lmtest")
 ```
 
 ## Overarching Questions
@@ -131,11 +134,46 @@ cova_table <- ftp_ar %>%
     }))
 ```
 
-Conduct two simple tests. First, regress each variable on the treatment dummy.
+Conduct two simple tests. First, regress each variable on the treatment dummy. 
+Comment on your choice of which standard errors to compute.
 
 ```{r regress each}
+# regress each covariate on the treatment dummy
+cova_regress <- cova_table %>% 
+  # pivot the data to allow for grouping by covariate
+  pivot_longer(cols = -e, names_to = "covariate", values_to = "value") %>% 
+  group_by(covariate) %>% 
+  group_map(~{
+    # regress each covariate on treatment dummy
+    regress <- lm(value ~ e, data = .)
+    
+    # calculate using robust standard errors
+    robust_se <- sqrt(diag(vcovHC(regress, type = "HC1")))
+    
+    # tidy the regression table
+    regress_table <- tidy(regress) %>% 
+      mutate(covariate = toString(.y)) %>% 
+      mutate(robust_se = robust_se)
+    
+    
+    regress_table
+    }) %>% 
+  bind_rows() %>% 
+  ungroup()
 
-summary(lm(yrkemp ~ e, data = cova_table))
+print(cova_regress)
+
+# tk
+# comment everything
+# clean up this silly table
+# explain heterosk standard errors
+```
+
+How many times do you reject the null at the 5% level? Roughly how many rejections would you expect
+under the null of random assignment? 
+
+```{r rejecting null}
+# identify n rows where p.value 
 
 
 
@@ -146,9 +184,11 @@ summary(lm(yrkemp ~ e, data = cova_table))
 
 
 
-Comment on your choice of which standard errors to compute. How many times do
-you reject the null at the 5% level? Roughly how many rejections would you expect
-under the null of random assignment? Second, regress the treatment dummy on all
+
+
+
+
+Second, regress the treatment dummy on all
 the variables together and conduct a joint test for balance. Explain your choice of
 degrees of freedom in computing this test. Do the two tests yield the same
 conclusion? What do you conclude about the overall balance of the sample?
