@@ -7,8 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library("foreign")
+library("haven")
+# https://martinctc.github.io/blog/working-with-spss-labels-in-r/
 library("tidyverse")
+library("stringr")
 ```
 
 ## Overarching Questions
@@ -22,16 +24,18 @@ components of the program?
 (2) Open the file ftp_ar.dta. What is the number of observations? Of observations in the treatment and control groups? Do your numbers match those from the documentation?
 
 ```{r import data}
-ftp_ar <- read.dta("ftp_ar.dta")
+ftp_ar <- read_dta("ftp_ar.dta")
 
 # "What is the number of observations"
 ftp_ar %>% nrow()
 # Answer: 2815
+# TK format
 
 # What is the number of observations in treatment and control groups?
 ftp_ar %>% count(e)
 # Treatment: e = 1, Answer: 1405
 # Control: e = 0, Answer: 1410
+# TK format
 
 # Yes, these numbers match (see page 8)
 ```
@@ -108,13 +112,83 @@ TK
 
 (5) Test for balance. To do so, use all variables whose labels contain the string
 “cova:”. These are pre-RA variables that MDRC sometimes used as controls.
+
+```{r cova_table}
+# create a table including only covariate columns and treatment dummy
+# covariate columns can be identified by "cova" in column label
+
+# https://stackoverflow.com/questions/67664582/is-it-possible-to-select-columns-based-on-variable-labels 
+
+cova_table <- ftp_ar %>% 
+  # select treatment dummy column 
+  select("e", 
+    # and columns where...
+    where(~ {
+    # the column's label
+    column_label <- attributes(.)$label
+    # is not null AND contains 'cova' (returns TRUE)
+    !is.null(column_label) && str_detect(column_label, 'cova')
+    }))
+```
+
 Conduct two simple tests. First, regress each variable on the treatment dummy.
+
+```{r regress each}
+
+summary(lm(yrkemp ~ e, data = cova_table))
+
+
+
+```
+
+
+
+
+
+
 Comment on your choice of which standard errors to compute. How many times do
 you reject the null at the 5% level? Roughly how many rejections would you expect
 under the null of random assignment? Second, regress the treatment dummy on all
 the variables together and conduct a joint test for balance. Explain your choice of
 degrees of freedom in computing this test. Do the two tests yield the same
 conclusion? What do you conclude about the overall balance of the sample?
+
+```{r balance}
+# identify cova columns
+cova_columns <- ftp_ar %>% 
+  select(where(~ 
+                 {
+                   column_label <- attributes(.)$label
+                   
+                   str_detect(column_label, 'cova')
+                   
+                   
+                 }
+                 
+                 
+                 
+                 ))
+  
+  
+  # select(where(~ str_detect(sapply(ftp_ar, function(x) attributes(x)$label), 'cova')))
+  #   
+  #   
+  #   
+  #   attributes(.)$label, 'cova')))
+
+
+
+
+  
+# select(where(~ str_detect(attributes(.)$label, 'cova')))
+# 
+
+
+
+
+
+```
+
 
 
 (6) Returning to the post-RA data, estimate simple treatment effects such as those
