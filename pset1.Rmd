@@ -14,6 +14,8 @@ library("broom")
 library("stringr")
 library("sandwich")
 library("lmtest")
+library("car")
+options(scipen=999)
 ```
 
 ## Overarching Questions
@@ -174,58 +176,47 @@ under the null of random assignment?
 
 ```{r rejecting null}
 # identify n rows where p.value 
+cova_regress %>% 
+  filter(term == "e") %>% 
+  filter(p.value <0.05)
+
+# 0 rejections
+# expect 1 in 20?
 
 
+```
+
+Second, regress the treatment dummy on all
+the variables together and conduct a joint test for balance. 
+
+```{r regress all}
+# regress treatment dummy on all variables together
+allcova_regress <- lm(e ~ ., data = cova_table)
+summary(allcova_regress)
+# conduct joint test for balance
+# per Ed Discussion board, installing car
+
+vif(allcova_regress)
+
+# excluding yrearnsq
+
+cova_balance <- linearHypothesis(allcova_regress, c("yr2adc = 0", "yradc = 0", "yr2rec = 0", "yrrec = 0", "yrkrec = 0", "yrearn = 0", "yr2earn = 0", "yremp = 0", "yr2emp = 0", "yrkemp = 0", "yr2kemp = 0", "yr2fs = 0", "yrfs = 0", "yr2rfs = 0", "yrrfs = 0", "yrkrfs = 0"))
 
 ```
 
 
 
-
-
-
-
-
-
-
-Second, regress the treatment dummy on all
-the variables together and conduct a joint test for balance. Explain your choice of
+Explain your choice of
 degrees of freedom in computing this test. Do the two tests yield the same
 conclusion? What do you conclude about the overall balance of the sample?
 
 ```{r balance}
-# identify cova columns
-cova_columns <- ftp_ar %>% 
-  select(where(~ 
-                 {
-                   column_label <- attributes(.)$label
-                   
-                   str_detect(column_label, 'cova')
-                   
-                   
-                 }
-                 
-                 
-                 
-                 ))
-  
-  
-  # select(where(~ str_detect(sapply(ftp_ar, function(x) attributes(x)$label), 'cova')))
-  #   
-  #   
-  #   
-  #   attributes(.)$label, 'cova')))
 
+# 16 df because had to exclude yrearnsq
 
+# F Values high
 
-
-  
-# select(where(~ str_detect(attributes(.)$label, 'cova')))
-# 
-
-
-
-
+# Neither test rejects the null 
 
 ```
 
@@ -234,6 +225,14 @@ cova_columns <- ftp_ar %>%
 (6) Returning to the post-RA data, estimate simple treatment effects such as those
 shown in “Annotated AR table 1_U.xls.” Can you replicate those results? Restrict
 attention again to the variables from question (3).
+
+
+
+
+
+
+
+
 
 
 (7) What type of treatment effects do your estimates identify? How do you interpret
