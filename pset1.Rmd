@@ -227,8 +227,7 @@ shown in “Annotated AR table 1_U.xls.” Can you replicate those results? Rest
 attention again to the variables from question (3).
 
 
-
-
+Replicate 3 w/ treatment (e = 1)
 
 
 
@@ -238,6 +237,8 @@ attention again to the variables from question (3).
 (7) What type of treatment effects do your estimates identify? How do you interpret
 them?
 
+I think naive estimator?
+
 
 (8) To distinguish the effects of the time limits from the other components of the
 reform program, Grogger and Michalopoulos proposed to estimate the effects of FTP
@@ -246,6 +247,9 @@ knowing who was assigned to a 24-month time limit, and who was assigned a 36-
 month time limit. Use the actual time limit for the treatment group and the imputed
 time limit for the control group. Find and tabulate the relevant variables. How many
 observations are in each group?
+
+
+
 
 
 (9) Define four age groups as a function of the age of the youngest child in the family
