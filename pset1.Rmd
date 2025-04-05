@@ -2,57 +2,98 @@
 title: "pp346_ps1_steiner"
 author: "erika steiner"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  pdf_document: default
+  html_document:
+    css: "style.css"
+editor_options:
+  markdown:
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE, results = 'hide'}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+
+# load packages
+# haven for reading in stata data with labels (suggested in
+# https://martinctc.github.io/blog/working-with-spss-labels-in-r/)
 library("haven")
-# https://martinctc.github.io/blog/working-with-spss-labels-in-r/
 library("tidyverse")
+library("magrittr")
+library('knitr')
+library('kableExtra')
 library("broom")
 library("stringr")
 library("sandwich")
 library("lmtest")
 library("car")
+library("stargazer")
+
+# get rid of scientific notation
 options(scipen=999)
 ```
 
 ## Overarching Questions
+
 (A) How did FTP change the behavior of welfare recipients?
 
-(B) What can we say about the effects of the time limit as opposed to other
-components of the program?
+(B) What can we say about the effects of the time limit as opposed to
+    other components of the program?
 
 ## Analysis Questions
 
-(2) Open the file ftp_ar.dta. What is the number of observations? Of observations in the treatment and control groups? Do your numbers match those from the documentation?
+(2) *Open the file ftp_ar.dta. What is the number of observations? Of
+    observations in the treatment and control groups? Do your numbers
+    match those from the documentation?*
 
 ```{r import data}
 ftp_ar <- read_dta("ftp_ar.dta")
-
-# "What is the number of observations"
-ftp_ar %>% nrow()
-# Answer: 2815
-# TK format
-
-# What is the number of observations in treatment and control groups?
-ftp_ar %>% count(e)
-# Treatment: e = 1, Answer: 1405
-# Control: e = 0, Answer: 1410
-# TK format
-
-# Yes, these numbers match (see page 8)
 ```
 
+There are `r nrow(ftp_ar)` observations in the public use administrative
+records file. The treatment and control group observations are as
+follows:
 
-(3) Verify the data by replicating the control-group means in the file “Annotated AR
-table 1_U.xls.” Restrict attention to the following subset of variables:
-(a) quarterly employment, quarter of RA to quarter 18;
+```{r obs table}
+# create table with number of observations, separated by rx and control
+n_obs <- 
+  # establish data frame
+  data.frame(ftp_ar %>% # base on admin data file
+                      # count number of people with treatment dummy (e) = 1 (rx)
+                      # and count number of people e = 0 (control)
+                      count(e)) %>% 
+  # convert "0"/"1" to "control"/"treatment"
+  mutate(e = ifelse(e == 1, "Treatment", "Control")) %>% 
+  # set n column name for readability
+  setNames(c('Group', 'Number of Observations'))
+
+# print the table
+kable(n_obs, 
+      # add a title
+      caption = "Observations by Treatment Status") %>% 
+  # set style 
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# https://stackoverflow.com/questions/34446139/caption-font-color-with-kable 
+
+```
+
+These observation counts match those shared on page 8 of the FTP
+Documentation.
+
+(4) *Verify the data by replicating the control-group means in the file
+    “Annotated AR table 1_U.xls.” Restrict attention to the following
+    subset of variables:*
+
+<!-- -->
+
+(a) *quarterly employment, quarter of RA to quarter 18;*
 
 ```{r control qemp mean}
 # create vector of employment quarter columns 1-19
-# for quarter of RA to quarter 18, this will be quarter 1 to 19 -- see data documentation pg. 19
+
+# for quarter of RA to quarter 18, this will be quarter 1 to 19 in data set
+# see data documentation pg. 19 for more info
 empq_cols <- c("empq1", "empq2", "empq3", "empq4", "empq5", "empq6", "empq7", "empq8", "empq9", "empq10", "empq11", "empq12", "empq13", "empq14", "empq15", "empq16", "empq17", "empq18", "empq19")
 
 c_empq_means_table <- 
@@ -65,12 +106,28 @@ c_empq_means_table <-
   # calculate the mean of each column
   summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
   # convert means to percentages (multiply by 100)
-  mutate(across(everything(), ~ . * 100))
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8","Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18" )) %>% 
+  # TK https://stackoverflow.com/questions/61935149/transpose-of-data-frame-turns-first-row-into-a-list
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Employment Rate (%)"))
 
-# format as table TK
+# print table
+kable(c_empq_means_table, 
+      # add a title
+      caption = "Average Quarterly Employment Rates among Control Group",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
 ```
 
-(b) any AFDC/TANF payments, quarter of RA to quarter 18;
+(b) *any AFDC/TANF payments, quarter of RA to quarter 18;*
+
 ```{r control any afdc mean}
 any_afdc_cols <- c("recc1", "recc2", "recc3", "recc4", "recc5", "recc6", "recc7", "recc8", "recc9", "recc10", "recc11", "recc12", "recc13", "recc14", "recc15", "recc16", "recc17", "recc18", "recc19")
 
@@ -84,10 +141,29 @@ c_afdc_means_table <-
   # calculate the mean of each column
   summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
   # convert means to percentages (multiply by 100)
-  mutate(across(everything(), ~ . * 100))
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8", "Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18")) %>% 
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Any AFDC/TANF Receipt (%)"))
+
+# print table
+kable(c_afdc_means_table, 
+      # add a title
+      caption = "Average Quarterly AFDC/TANF Receipt Rates among Control Group",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
+
+
 ```
 
-(b) any Food Stamp payments, quarter of RA to quarter 18;
+(b) *any Food Stamp payments, quarter of RA to quarter 18;*
+
 ```{r control any food stamp mean}
 rfsc_cols <- c("rfsc1", "rfsc2", "rfsc3", "rfsc4", "rfsc5", "rfsc6", "rfsc7", "rfsc8", "rfsc9", "rfsc10", "rfsc11", "rfsc12", "rfsc13", "rfsc14", "rfsc15", "rfsc16", "rfsc17", "rfsc18", "rfsc19")
 
@@ -101,22 +177,90 @@ c_rfsc_means_table <-
   # calculate the mean of each column
   summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
   # convert means to percentages (multiply by 100)
-  mutate(across(everything(), ~ . * 100))
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8", "Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18")) %>% 
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Any Food Stamp Receipt (%)"))
+
+# print table
+kable(c_rfsc_means_table, 
+      # add a title
+      caption = "Average Quarterly Food Stamp Receipt Rates among Control Group",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
+
 ```
 
-Are there any discrepancies? 
-TK RFSC Quarter 17
-While you are at it, comment on the levels of
-employment among the people in the study population.
-TK Slow increase over time
+*Are there any discrepancies?*
 
-(4) Compare your results to those in Table B.1 of Bloom et al (2000). Why are they
-different? How do you expect these differences to affect your results?
-- Different because data is different (page 3)
-TK
+There is one major discrepancy between the "Average Quarterly Food Stamp
+Receipt Rates among Control Group" table and "AR Table 1_U". While the
+above reports that "36.7"% of the control group received food stamps in
+Quarter 17, the original table reports "0.4". While 36.7 is similar to
+the numbers reported in other quarters and follows the general trend,
+0.4 is drastically different, implying some error in the original table.
 
-(5) Test for balance. To do so, use all variables whose labels contain the string
-“cova:”. These are pre-RA variables that MDRC sometimes used as controls.
+There are a few minor discrepancies between the above tables and those
+included in "AR Table 1_U" which are potentially due to differences in
+rounding standards. For example, in "Average Quarterly Employment Rates
+among Control Group" table, the mean employment rate of Quarter 3 is
+39.6% (rounded from 39.645%); in the original table, this is reported as
+39.7%. These discrepancies are never greater than 0.01%, and thus are
+likely insignificant.
+
+*While you are at it, comment on the levels of employment among the
+people in the study population.*
+
+On average, the control group appears to increase employment rates over
+time.
+
+```{r}
+quarters <- c("Quarter of RA*" = "Quarter 0", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8", "Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18")
+num_quarters <- as.numeric(gsub("Quarter ", "", quarters))
+
+c_empq_means_table %>% 
+  mutate(Quarter = gsub("of RA\\*", "0", Quarter)) %>% 
+  mutate(quarter_numeric = as.numeric(gsub("Quarter ", "", Quarter))) %>% 
+  ggplot(aes(x = quarter_numeric, y = `Employment Rate (%)`)) + 
+  geom_point() + 
+ geom_smooth(method = 'lm', formula = y~x) +
+  labs(x = "Quarter after Random Assignment", title = "Control Group Employment Rate over Time")
+
+```
+
+(4) *Compare your results to those in Table B.1 of Bloom et al (2000).
+    Why are they different? How do you expect these differences to
+    affect your results?*
+
+The results in Table B.1 are slightly different (percentage rates in the
+Bloom table are between 0.2 higher and 0.5 lower than those in the
+results above).
+
+As explained on Page 3 of the data documentation, the files have been
+changed from their original form to maintain participant
+confidentiality. This includes top coding some variables, rounding all
+administrative record variables, and completely dropping some variables
+(including most date variables). Bloom's analysis may have thus been
+able to employ some of the dropped variables to make more precise
+estimates, while ours did not include the same adjustments. Following up
+on the the prior question, there may also be differing rounding
+parameters utilized in the original tables.
+
+We are told, however, that extensive testing has been conducted to
+confirm that the results in Bloom are very close to those we created.
+Thus, while we would expect the minor differences we experienced due to
+some slight data discrepancies, we should not expect major
+dissimilarities.
+
+(5) *Test for balance. To do so, use all variables whose labels contain
+    the string “cova:”. These are pre-RA variables that MDRC sometimes
+    used as controls.*
 
 ```{r cova_table}
 # create a table including only covariate columns and treatment dummy
@@ -136,144 +280,285 @@ cova_table <- ftp_ar %>%
     }))
 ```
 
-Conduct two simple tests. First, regress each variable on the treatment dummy. 
-Comment on your choice of which standard errors to compute.
+*Conduct two simple tests. First, regress each variable on the treatment
+dummy. Comment on your choice of which standard errors to compute.*
 
-```{r regress each}
+```{r regress each, results = 'asis'}
 # regress each covariate on the treatment dummy
+
+# create table output
 cova_regress <- cova_table %>% 
   # pivot the data to allow for grouping by covariate
   pivot_longer(cols = -e, names_to = "covariate", values_to = "value") %>% 
   group_by(covariate) %>% 
+  # apply regression across each covariate
   group_map(~{
     # regress each covariate on treatment dummy
     regress <- lm(value ~ e, data = .)
     
-    # calculate using robust standard errors
+    # calculate robust standard errors
     robust_se <- sqrt(diag(vcovHC(regress, type = "HC1")))
     
     # tidy the regression table
     regress_table <- tidy(regress) %>% 
+      # including covariates as strings
       mutate(covariate = toString(.y)) %>% 
-      mutate(robust_se = robust_se)
-    
+      # and adding in robust_se
+      mutate(robust_se = robust_se) %>% 
+      # removing other standard error
+      select(!std.error)
     
     regress_table
-    }) %>% 
+  }) %>% 
   bind_rows() %>% 
   ungroup()
 
-print(cova_regress)
+# print a pretty table
+data.frame(cova_regress) %>%
+  # filtering for term
+  filter(term == "e") %>% 
+  # arrange columns
+  select(term, covariate, estimate, robust_se, statistic, p.value) %>% 
+  # set column names
+  setNames(c("Term (Treatment Status)", "Covariate", "Regression Coefficient Estimate", "Robust Standard Error", "T-Statistic", "P-Value")) %>%
+kable(digits = 3, caption = "Regression Results by Covariate") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
-# tk
-# comment everything
-# clean up this silly table
-# explain heterosk standard errors
 ```
 
-How many times do you reject the null at the 5% level? Roughly how many rejections would you expect
-under the null of random assignment? 
+This test computes robust standard errors to adjust for
+heteroskedasticity. Included covariates, such as earnings and
+employment, may have greater variance among certain groups in the
+population (i.e., they may be heteroskedastic). To adjust for
+heteroskedasticity, we should calculate robust standard errors, which
+will allow for better modeling.
+
+*How many times do you reject the null at the 5% level?*
 
 ```{r rejecting null}
-# identify n rows where p.value 
+# identify n rows where p value <0.05 (reject null)
 cova_regress %>% 
   filter(term == "e") %>% 
-  filter(p.value <0.05)
-
-# 0 rejections
-# expect 1 in 20?
-
+   filter(p.value <0.05) %>% 
+  nrow(.)
 
 ```
 
-Second, regress the treatment dummy on all
-the variables together and conduct a joint test for balance. 
+*Roughly how many rejections would you expect under the null of random
+assignment?*
+
+We reject the null 0 times, as the statistical significance of each
+covariate regression never exceeds 0.05. Under the null of random
+assignment, we do not expect statistically significant correlation
+between the treatment dummy and our covariates. Random assignment should
+purportedly evenly distribute the characteristics between the treatment
+and control groups.
+
+*Second, regress the treatment dummy on all the variables together and
+conduct a joint test for balance.*
 
 ```{r regress all}
 # regress treatment dummy on all variables together
 allcova_regress <- lm(e ~ ., data = cova_table)
-summary(allcova_regress)
+# summary(allcova_regress)
 # conduct joint test for balance
 # per Ed Discussion board, installing car
 
-vif(allcova_regress)
-
+# cor(cova_table$yrearn, cova_table$yrearnsq)
 # excluding yrearnsq
 
 cova_balance <- linearHypothesis(allcova_regress, c("yr2adc = 0", "yradc = 0", "yr2rec = 0", "yrrec = 0", "yrkrec = 0", "yrearn = 0", "yr2earn = 0", "yremp = 0", "yr2emp = 0", "yrkemp = 0", "yr2kemp = 0", "yr2fs = 0", "yrfs = 0", "yr2rfs = 0", "yrrfs = 0", "yrkrfs = 0"))
 
-```
-
-
-
-Explain your choice of
-degrees of freedom in computing this test. Do the two tests yield the same
-conclusion? What do you conclude about the overall balance of the sample?
-
-```{r balance}
-
-# 16 df because had to exclude yrearnsq
-
-# F Values high
-
-# Neither test rejects the null 
+cova_balance %>% 
+  kable(digits = 3, caption = "Joint Hypothesis Test Results") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 ```
 
+*Explain your choice of degrees of freedom in computing this test.*
+
+This test only includes 16 degrees of freedom despite having 17
+covariates included in the model. This is because variable "yrearnsq",
+as the square of "yrearn", is too closely correlated with "yrearn" to
+properly model. This can be seen by running
+"cor(cova_table$yrearn, cova_table$yrearnsq)", which reflects a very
+high (0.875) correlation coefficient.
+
+*Do the two tests yield the same conclusion? What do you conclude about
+the overall balance of the sample?*
+
+The second test returned F-Value is 0.83, and it's correlated P-Value is
+0.65 (much greater than 0.05). Therefore, we fail to reject the null
+hypothesis that treatment assignment is unrelated to the covariates.
+This yields a similar conclusion to the first test, which suggests that
+there are no systematic differences between the average covariate values
+between the treatment and control group.
+
+Because both tests fail to reject the null hypothesis that treatment
+assignment is unrelated to the covariates, we can conclude that
+treatment assignment in this study was in fact random. The sample is
+thus balanced, with respect to the covariates.
+
+(6) *Returning to the post-RA data, estimate simple treatment effects
+    such as those shown in “Annotated AR table 1_U.xls.” Can you
+    replicate those results? Restrict attention again to the variables
+    from question (3).*
 
 
-(6) Returning to the post-RA data, estimate simple treatment effects such as those
-shown in “Annotated AR table 1_U.xls.” Can you replicate those results? Restrict
-attention again to the variables from question (3).
+(a) *quarterly employment, quarter of RA to quarter 18;*
+
+```{r treatment qemp mean}
+# create vector of employment quarter columns 1-19
+
+# for quarter of RA to quarter 18, this will be quarter 1 to 19 in data set
+# see data documentation pg. 19 for more info
+empq_cols <- c("empq1", "empq2", "empq3", "empq4", "empq5", "empq6", "empq7", "empq8", "empq9", "empq10", "empq11", "empq12", "empq13", "empq14", "empq15", "empq16", "empq17", "empq18", "empq19")
+
+t_empq_means_table <- 
+  # use admin data set
+  ftp_ar %>% 
+  # filter for treatment group
+  filter(e == 1) %>% 
+  # isolate employment quarter columns
+  select (all_of(empq_cols)) %>% 
+  # calculate the mean of each column
+  summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
+  # convert means to percentages (multiply by 100)
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8","Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18" )) %>% 
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Treatment Employment Rate (%)"))
+
+# print comparison table
+t_empq_means_table %>% 
+  mutate("Control Employment Rate (%)" = c_empq_means_table$`Employment Rate (%)`) %>% 
+  mutate("Difference" = .$`Treatment Employment Rate (%)` - .$'Control Employment Rate (%)') %>% 
+kable(.,  
+      # add a title
+      caption = "Average Quarterly Employment Rates",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
+```
+(b) *any AFDC/TANF payments, quarter of RA to quarter 18;*
+
+```{r treatment any afdc mean}
+any_afdc_cols <- c("recc1", "recc2", "recc3", "recc4", "recc5", "recc6", "recc7", "recc8", "recc9", "recc10", "recc11", "recc12", "recc13", "recc14", "recc15", "recc16", "recc17", "recc18", "recc19")
+
+t_afdc_means_table <-
+  # use admin data set
+  ftp_ar %>% 
+  # filter for treatment group
+  filter(e == 1) %>% 
+  # isolate afdc/tanf payment columns
+  select (all_of(any_afdc_cols)) %>% 
+  # calculate the mean of each column
+  summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
+  # convert means to percentages (multiply by 100)
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8", "Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18")) %>% 
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Treatment AFDC/TANF Receipt (%)"))
+
+# print comparison table
+t_afdc_means_table %>% 
+  mutate("Control AFDC/TANF Rate (%)" = c_afdc_means_table$`Any AFDC/TANF Receipt (%)`) %>% 
+  mutate("Difference" = .$`Treatment AFDC/TANF Receipt (%)` - .$'Control AFDC/TANF Rate (%)') %>% 
+kable(.,  
+      # add a title
+      caption = "Average Quarterly AFDC/TANF Rates",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
 
 
-Replicate 3 w/ treatment (e = 1)
+```
+
+(b) *any Food Stamp payments, quarter of RA to quarter 18;*
+
+```{r treatment any food stamp mean}
+rfsc_cols <- c("rfsc1", "rfsc2", "rfsc3", "rfsc4", "rfsc5", "rfsc6", "rfsc7", "rfsc8", "rfsc9", "rfsc10", "rfsc11", "rfsc12", "rfsc13", "rfsc14", "rfsc15", "rfsc16", "rfsc17", "rfsc18", "rfsc19")
+
+t_rfsc_means_table <-
+   # use admin data set
+  ftp_ar %>% 
+  # filter for treatment group
+  filter(e == 1) %>% 
+  # isolate afdc/tanf payment columns
+  select (all_of(rfsc_cols)) %>% 
+  # calculate the mean of each column
+  summarise(across(everything(), ~ mean (., na.rm = TRUE))) %>% 
+  # convert means to percentages (multiply by 100)
+  mutate(across(everything(), ~ . * 100)) %>% 
+  # rename quarters for readability
+  setNames(c("Quarter of RA*", "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Quarter 5", "Quarter 6", "Quarter 7", "Quarter 8", "Quarter 9", "Quarter 10", "Quarter 11", "Quarter 12", "Quarter 13", "Quarter 14", "Quarter 15", "Quarter 16", "Quarter 17", "Quarter 18")) %>% 
+  # transpose for readability
+  pivot_longer(., cols = everything()) %>% 
+  setNames(c("Quarter", "Treatment Food Stamp Receipt (%)"))
+
+# print comparison table
+t_rfsc_means_table %>% 
+  mutate("Control Food Stamp Receipt (%)" = c_rfsc_means_table$`Any Food Stamp Receipt (%)`) %>% 
+  mutate("Difference" = .$`Treatment Food Stamp Receipt (%)` - .$'Control Food Stamp Receipt (%)') %>% 
+kable(.,  
+      # add a title
+      caption = "Average Quarterly Food Stamp Receipt Rates",
+      # round to tenths place to mimic original table
+      digits = 1) %>% 
+  # set style
+  kable_styling(bootstrap_options = c("striped", "hover")) %>% 
+  # add footnote to define "RA"
+  footnote(symbol = "RA = Random Assignment")
+
+```
 
 
+(7) What type of treatment effects do your estimates identify? How do
+    you interpret them?
 
+(8) To distinguish the effects of the time limits from the other
+    components of the reform program, Grogger and Michalopoulos proposed
+    to estimate the effects of FTP by the age of the youngest child in
+    the family. You’ll do the same. This will require knowing who was
+    assigned to a 24-month time limit, and who was assigned a 36- month
+    time limit. Use the actual time limit for the treatment group and
+    the imputed time limit for the control group. Find and tabulate the
+    relevant variables. How many observations are in each group?
 
+(9) Define four age groups as a function of the age of the youngest
+    child in the family during the quarter of random assignment: (0)
+    less than 3 years; (i) 3-8 years; (ii) 9- 14 years (for families
+    with a 36-month time limit) or 9-15 years (for families with a
+    24-month time limit); (iv) 15-19 (for families with a 36-month time
+    limit) or 16-19 years (for families with a 24-month time limit). By
+    treatment status, how many families are in each age group?
 
+(10) Estimate age-group-specific treatment effects of FTP on number of
+     months of AFDC receipt and Food Stamp receipt, and number of
+     quarters of employment , during the first 24 months after random
+     assignment. Are the estimates of the effects on AFDC receipt
+     consistent with the hypothesis that time limits should have
+     stronger effects, the younger the youngest child in the family?
+     Note that families in age group (iv) (from Question 9) shouldn’t be
+     affected by time limits at all. They are only affected by the other
+     components of the program, so they provide an estimate of the
+     collective effect of those components. Under some assumptions, you
+     can estimate the effects of the time limit on the younger age
+     groups as the difference between the age-group specific effects of
+     the reform and the effect of the reform on the oldest age group.
 
-(7) What type of treatment effects do your estimates identify? How do you interpret
-them?
-
-I think naive estimator?
-
-
-(8) To distinguish the effects of the time limits from the other components of the
-reform program, Grogger and Michalopoulos proposed to estimate the effects of FTP
-by the age of the youngest child in the family. You’ll do the same. This will require
-knowing who was assigned to a 24-month time limit, and who was assigned a 36-
-month time limit. Use the actual time limit for the treatment group and the imputed
-time limit for the control group. Find and tabulate the relevant variables. How many
-observations are in each group?
-
-
-
-
-
-(9) Define four age groups as a function of the age of the youngest child in the family
-during the quarter of random assignment: (0) less than 3 years; (i) 3-8 years; (ii) 9-
-14 years (for families with a 36-month time limit) or 9-15 years (for families with a
-24-month time limit); (iv) 15-19 (for families with a 36-month time limit) or 16-19
-years (for families with a 24-month time limit). By treatment status, how many
-families are in each age group?
-
-
-(10) Estimate age-group-specific treatment effects of FTP on number of months of
-AFDC receipt and Food Stamp receipt, and number of quarters of employment ,
-during the first 24 months after random assignment. Are the estimates of the effects
-on AFDC receipt consistent with the hypothesis that time limits should have
-stronger effects, the younger the youngest child in the family? Note that families in
-age group (iv) (from Question 9) shouldn’t be affected by time limits at all. They are
-only affected by the other components of the program, so they provide an estimate
-of the collective effect of those components. Under some assumptions, you can
-estimate the effects of the time limit on the younger age groups as the difference
-between the age-group specific effects of the reform and the effect of the reform on
-the oldest age group.
-
-
-(11) To your regression from (10) add a dummy that equals one if the family has a
-36-month time limit. Reassess the evidence for whether time limits have stronger
-effects, the younger the youngest child in the family. Explain the difference between
-these estimates and those that do not control for the length of the time limit.
+(11) To your regression from (10) add a dummy that equals one if the
+     family has a 36-month time limit. Reassess the evidence for whether
+     time limits have stronger effects, the younger the youngest child
+     in the family. Explain the difference between these estimates and
+     those that do not control for the length of the time limit.
